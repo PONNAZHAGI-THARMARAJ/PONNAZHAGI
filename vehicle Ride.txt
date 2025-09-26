@@ -1,0 +1,222 @@
+F240:
+
+
+package bikeRide;
+
+
+
+import java.util.*;
+
+abstract class Vehicle {
+    protected String id;
+    protected String model;
+    protected boolean available;
+
+    public Vehicle(String id, String model) {
+        this.id = id;
+        this.model = model;
+        this.available = true;
+    }
+
+    public String getId() { return id; }
+    public boolean isAvailable() { return available; }
+    public void setAvailable(boolean available) { this.available = available; }
+    public abstract double getRatePerDay();
+    public String toString() {
+        return id + " - " + model + " - " + (available ? "Available" : "Rented");
+    }
+}
+
+class Car extends Vehicle {
+    public Car(String id, String model) {
+        super(id, model);
+    }
+
+    public double getRatePerDay() {
+        return 1000.0;
+    }
+}
+
+class Bike extends Vehicle {
+    public Bike(String id, String model) {
+        super(id, model);
+    }
+
+    public double getRatePerDay() {
+        return 500.0;
+    }
+}
+
+class Customer {
+    protected String name;
+    protected String id;
+
+    public Customer(String id, String name) {
+        this.id = id;
+        this.name = name;
+    }
+
+    public String getId() { return id; }
+    public boolean isPremium() { return false; }
+}
+
+class PremiumCustomer extends Customer {
+    public PremiumCustomer(String id, String name) {
+        super(id, name);
+    }
+
+    public boolean isPremium() { return true; }
+}
+
+class RentalTransaction {
+    private Vehicle vehicle;
+    private Customer customer;
+    private int days;
+
+    public RentalTransaction(Vehicle vehicle, Customer customer, int days) {
+        this.vehicle = vehicle;
+        this.customer = customer;
+        this.days = days;
+        vehicle.setAvailable(false);
+    }
+
+    public Vehicle getVehicle() { return vehicle; }
+    public Customer getCustomer() { return customer; }
+    public int getDays() { return days; }
+}
+
+class ReturnTransaction {
+    private RentalTransaction rental;
+    private int actualDays;
+
+    public ReturnTransaction(RentalTransaction rental, int actualDays) {
+        this.rental = rental;
+        this.actualDays = actualDays;
+        rental.getVehicle().setAvailable(true);
+    }
+
+    public Bill generateBill() {
+        return new Bill(rental, actualDays);
+    }
+}
+
+class Bill {
+    private double cost;
+    private double penalty;
+    private double discount;
+
+    public Bill(RentalTransaction rental, int actualDays) {
+        double rate = rental.getVehicle().getRatePerDay();
+        int expectedDays = rental.getDays();
+        cost = rate * expectedDays;
+
+        if (actualDays > expectedDays) {
+            penalty = (actualDays - expectedDays) * rate * 0.2;
+        }
+
+        if (rental.getCustomer().isPremium()) {
+            discount = cost * 0.1;
+        }
+    }
+
+    public String toString() {
+        return "Rental Cost: ₹" + cost + "\nPenalty: ₹" + penalty + "\nDiscount: ₹" + discount +
+               "\nTotal: ₹" + (cost + penalty - discount);
+    }
+}
+
+public class Goride {
+    static List<Vehicle> vehicles = new ArrayList<>();
+    static List<Customer> customers = new ArrayList<>();
+    static List<RentalTransaction> rentals = new ArrayList<>();
+    static Scanner sc = new Scanner(System.in);
+
+    public static void main(String[] args) {
+        while (true) {
+            System.out.println("\n--- Vehicle Rental System ---");
+            System.out.println("1. Add Vehicle\n2. Add Customer\n3. Rent Vehicle\n4. Return Vehicle\n5. Display Vehicles\n6. Exit");
+            int choice = sc.nextInt(); sc.nextLine();
+
+            switch (choice) {
+                case 1 : addVehicle();
+                case 2 : addCustomer();
+                case 3 : rentVehicle();
+                case 4 : returnVehicle();
+                case 5 : displayVehicles();
+                case 6 : {
+                    System.out.println("Exiting system. Goodbye!");
+                    System.exit(0);
+                }
+                default : System.out.println("Invalid choice. Try again.");
+            }
+        }
+    }
+
+    static void addVehicle() {
+        System.out.print("Enter type (Car/Bike): ");
+        String type = sc.nextLine();
+        System.out.print("Enter ID: ");
+        String id = sc.nextLine();
+        System.out.print("Enter Model: ");
+        String model = sc.nextLine();
+
+        Vehicle v = type.equalsIgnoreCase("Car") ? new Car(id, model) : new Bike(id, model);
+        vehicles.add(v);
+        System.out.println("✅ Vehicle added.");
+    }
+
+    static void addCustomer() {
+        System.out.print("Enter ID: ");
+        String id = sc.nextLine();
+        System.out.print("Enter Name: ");
+        String name = sc.nextLine();
+        System.out.print("Premium? (yes/no): ");
+        String premium = sc.nextLine();
+
+        Customer c = premium.equalsIgnoreCase("yes") ? new PremiumCustomer(id, name) : new Customer(id, name);
+        customers.add(c);
+        System.out.println("✅ Customer added.");
+    }
+
+    static void rentVehicle() {
+        System.out.print("Enter Vehicle ID: ");
+        String vid = sc.nextLine();
+        System.out.print("Enter Customer ID: ");
+        String cid = sc.nextLine();
+        System.out.print("Enter Rental Days: ");
+        int days = sc.nextInt(); sc.nextLine();
+
+        Vehicle v = vehicles.stream().filter(x -> x.getId().equals(vid) && x.isAvailable()).findFirst().orElse(null);
+        Customer c = customers.stream().filter(x -> x.getId().equals(cid)).findFirst().orElse(null);
+
+        if (v != null && c != null) {
+            RentalTransaction rt = new RentalTransaction(v, c, days);
+            rentals.add(rt);
+            System.out.println("✅ Vehicle rented successfully.");
+        } else {
+            System.out.println("❌ Invalid vehicle or customer.");
+        }
+    }
+
+    static void returnVehicle() {
+        System.out.print("Enter Vehicle ID: ");
+        String vid = sc.nextLine();
+        RentalTransaction rt = rentals.stream().filter(x -> x.getVehicle().getId().equals(vid)).findFirst().orElse(null);
+
+        if (rt != null) {
+            System.out.print("Enter Actual Days Used: ");
+            int actualDays = sc.nextInt(); sc.nextLine();
+            ReturnTransaction ret = new ReturnTransaction(rt, actualDays);
+            System.out.println("🧾 Receipt:\n" + ret.generateBill());
+            rentals.remove(rt);
+        } else {
+            System.out.println("❌ No rental found for this vehicle.");
+        }
+    }
+
+    static void displayVehicles() {
+        System.out.println("📋 Vehicles:");
+        vehicles.forEach(System.out::println);
+    }
+}
+
